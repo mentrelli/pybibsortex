@@ -24,7 +24,7 @@ import os
 import re
 import operator
 
-version = 'v. 0.3' # (April 1st, 2015)
+version = 'v. 0.3.1' # (April 6, 2015)
 S = "."
 
 
@@ -130,25 +130,56 @@ def parse_bibitems(text):
     print S*3+"parsed",
     bibitems = dict()
 
-    i = 0
+    i, i_before, i_after = 0, 0, 0
+    
+    try:
+        pos_thebibliography_start = [m.start() for m in re.finditer(ur'\\begin\s*{\s*thebibliography\s*}', text)][0]
+    except:
+        pos_thebibliography_start = -1
+        
+    try:
+        pos_thebibliography_end = [m.start() for m in re.finditer(ur'\\end\s*{\s*thebibliography\s*}', text)][0]
+    except:
+        pos_thebibliography_end = -1
+        
+    if pos_thebibliography_start < 0 or pos_thebibliography_end < 0:
+        print "ERROR: 'thebibliography' environment not properly defined"
 
     for ix in [m.start() for m in re.finditer(ur'\\bibitem{', text)]:
 
-        i += 1
+        if ix < pos_thebibliography_start:
+            
+            i_before += 1
+            
+        elif ix > pos_thebibliography_end:
+            
+            i_after += 1
+            
+        else:
+            
+            i += 1
 
-        idx = [m.start() for m in re.finditer(ur'{|}', text[ix:-1])]
-        i0 = ix + idx[0] # position of first '{' after \bibitem
-        i1 = ix + idx[1] # position of first '}' after \bibitem
-        key = text[i0+1:i1]
-        key = key.strip(' \n\t\r')
+            idx = [m.start() for m in re.finditer(ur'{|}', text[ix:-1])]
+            i0 = ix + idx[0] # position of first '{' after \bibitem
+            i1 = ix + idx[1] # position of first '}' after \bibitem
+            key = text[i0+1:i1]
+            key = key.strip(' \n\t\r')
 
-        idx = [m.start() for m in re.finditer(ur'\\bibitem{|\\end{', text[ix:-1])]
-        i1 = ix + idx[1] # position of end of \bibitem{}
-        item = text[ix:i1]
+            idx = [m.start() for m in re.finditer(ur'\\bibitem{|\\end{', text[ix:-1])]
+            i1 = ix + idx[1] # position of end of \bibitem{}
+            item = text[ix:i1]
 
-        bibitems[key] = [i, item, 0]
+            bibitems[key] = [i, item, 0]
 
-    print "{} occurencies of \\bibitem{}".format(i, '{}')
+    print "{} occurencies of \\bibitem{} to process".format(i, '{}')
+    
+    if i_before > 0:
+        print S*3+"parsed",
+        print "{} occurencies of \\bibitem{} before 'thebibliography' environment (discarded)".format(i_before, '{}')
+        
+    if i_after > 0:
+        print S*3+"parsed",
+        print "{} occurencies of \\bibitem{} after 'thebibliography' environment (discarded)".format(i_after, '{}')
 
     return bibitems
 
