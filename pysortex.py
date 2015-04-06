@@ -18,31 +18,46 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#!/usr/bin/env python
+
+# history version 
+#version = 'v. 0.3' # (April 1, 2015)
+#version = 'v. 0.3.1' # (April 5, 2015)
+
+# prestn version
+version = 'v. 0.4' # (April 6, 2015)
 
 import sys
 import os
 import re
 import operator
 
-version = 'v. 0.3.1' # (April 6, 2015)
-S = "."
+S  = "..."
+SS = S*2 
 
 
-def recursive_parser(filename, flag_stripcomments=True, _firstcall=True, _filecount=1, _filename_bib=''):
-
+def recursive_parser(filename, dirname=None, flag_stripcomments=True, _firstcall=True, _filecount=1, _filename_bib=''):
+    
+    if dirname is None:
+        dirname = os.getcwd()
+        
+    filenamepath = os.path.join(dirname, filename)
+    
     try:
-        f = open(filename, 'r')
+        f = open(filenamepath, 'r')
         filename_found = filename
     except:
         try:
-            f = open(filename+'.tex', 'r')
+            f = open(filenamepath+'.tex', 'r')
             filename_found = filename+'.tex'
         except:
             filename_found = None
 
     if filename_found is not None:
+        
+        filenamefoundpath = os.path.join(dirname, filename_found)
 
-        f = open(filename_found, 'r')
+        f = open(filenamefoundpath, 'r')
 
         text = f.read()
 
@@ -52,7 +67,10 @@ def recursive_parser(filename, flag_stripcomments=True, _firstcall=True, _fileco
         else:
             str_comment = "with comments]"
 
-        print S*6+"reading file '{}' [{} lines...{}".format(filename_found, len(text.splitlines()), str_comment)
+        if _firstcall:
+            dirnameabs = os.path.abspath(dirname)
+            print S+"working directory: {}".format(dirnameabs)
+        print SS+"reading file '{}' [{} lines...{}".format(filename_found, len(text.splitlines()), str_comment)
 
         pos = [m.start() for m in re.finditer(ur'\\input{|\\include{', text)]
 
@@ -69,21 +87,21 @@ def recursive_parser(filename, flag_stripcomments=True, _firstcall=True, _fileco
             i1 = p + idx[1] # position of first '}' after \input or \include
             filename = text[i0+1:i1]
 
-            s, _filecount, _filename_bib = recursive_parser(filename, flag_stripcomments, False, _filecount+1, _filename_bib)
+            s, _filecount, _filename_bib = recursive_parser(filename, dirname, flag_stripcomments, False, _filecount+1, _filename_bib)
             text = text[:p] + s + text[i1+1:]
 
             pos = [m.start() for m in re.finditer(ur'\\input{|\\include{', text)]
 
         if _firstcall:
 
-            print S*3+"read {} files [total of {} lines]".format(_filecount, len(text.splitlines()))
-            print S*3+"thebibliography environment found in file '{}'".format(_filename_bib)
+            print S+"read {} files [total of {} lines]".format(_filecount, len(text.splitlines()))
+            print S+"thebibliography environment found in file '{}'".format(_filename_bib)
 
 
         return text, _filecount, _filename_bib
 
     else:
-        print S*3+"ERROR: cannot open file '{}'".format(filename)
+        print S+"ERROR: cannot open file '{}'".format(filename)
 
     return text, _filecount, _filename_bib
 
@@ -110,7 +128,7 @@ def remove_duplicates_preserve_order(ll):
 
 def parse_cites(text):
 
-    print S*3+"parsed",
+    print S+"parsed",
 
     cites = re.findall(ur'\\cite{((?!#).+?)}', text)
     ncites = len(cites)
@@ -127,7 +145,7 @@ def parse_cites(text):
 
 def parse_bibitems(text):
 
-    print S*3+"parsed",
+    print S+"parsed",
     bibitems = dict()
 
     i, i_before, i_after = 0, 0, 0
@@ -174,11 +192,11 @@ def parse_bibitems(text):
     print "{} occurencies of \\bibitem{} to process".format(i, '{}')
     
     if i_before > 0:
-        print S*3+"parsed",
+        print S+"parsed",
         print "{} occurencies of \\bibitem{} before 'thebibliography' environment (discarded)".format(i_before, '{}')
         
     if i_after > 0:
-        print S*3+"parsed",
+        print S+"parsed",
         print "{} occurencies of \\bibitem{} after 'thebibliography' environment (discarded)".format(i_after, '{}')
 
     return bibitems
@@ -187,7 +205,7 @@ def parse_bibitems(text):
 
 def make_new_bib(cites, bibitems, flag_sort):
 
-    print S*6+"processing ordered bibliography"
+    print SS+"processing ordered bibliography"
 
     thebibliography = ''
     i, i_nokey, i_nocite = 0, 0, 0
@@ -202,7 +220,7 @@ def make_new_bib(cites, bibitems, flag_sort):
                 i += 1
                 bibitems[key][2] = i
             else:
-                print S*6+"WARNING: citation '{}' does not appear in the bibliography".format(key)
+                print SS+"WARNING: citation '{}' does not appear in the bibliography".format(key)
                 i_nokey += 1
 
 
@@ -211,23 +229,23 @@ def make_new_bib(cites, bibitems, flag_sort):
             sorted_bibitems = sorted(bibitems.items(), key=operator.itemgetter(1))
             for item in sorted_bibitems:
                 if item[1][2] < 1:
-                    print S*6+"WARNING: bibitem '{}' (position #{}) is not cited in the text (moved at the bottom)".format(item[0], item[1][0])
+                    print SS+"WARNING: bibitem '{}' (position #{}) is not cited in the text (moved at the bottom)".format(item[0], item[1][0])
                     key = item[0]
                     thebibliography = thebibliography + bibitems[key][1] #+ '\n\n'
                     i_nocite += 1
                     i += 1
 
         if i_nokey > 0:
-            print S*3+"found {} citations without a bibitem entry".format(i_nokey)
+            print S+"found {} citations without a bibitem entry".format(i_nokey)
 
         if i_nocite > 0:
-            print S*3+"found {} bibliography entries without citations (moved at the bottom)".format(i_nocite)
+            print S+"found {} bibliography entries without citations (moved at the bottom)".format(i_nocite)
 
-        print S*3+"{} bibliography entries have been processed".format(i)
+        print S+"{} bibliography entries have been processed".format(i)
 
     elif flag_sort in ['a', 'alphabetic']:
 
-        print S*3+"ERROR: alphabetic sorting still to implement."
+        print S+"ERROR: alphabetic sorting still to implement."
         thebibliography = None
 
     return thebibliography
@@ -259,7 +277,7 @@ def make_backup_file(filename_in):
     fout.write(content)
     fout.close()
 
-    print S*3+"backup of input file: '{}'".format(filename_backup)
+    print S+"backup of input file containing bibliography: '{}'".format(filename_backup)
 
 
 
@@ -282,14 +300,15 @@ def write_new_file(filename_bib, new_bib):
     f.write(text_new)
     f.close()
 
-    print S*3+"output file: '{}'".format(filename_bib)
+    print S+"output file: '{}'".format(filename_bib)
 
     return text_new
 
 
 
 
-def bibsort(filename_in, filename_out=None, flag_sort='call', flag_stripcomments=True, flag_backup=True):
+def bibsort(filename_in, filename_out=None, dirname=None, \
+            flag_sort='call', flag_stripcomments=True, flag_backup=True):
 
     print "*"*65
     print "* PySorTeX {} -  Copyright (C) 2015, Andrea Mentrelli       *".format(version)
@@ -298,8 +317,11 @@ def bibsort(filename_in, filename_out=None, flag_sort='call', flag_stripcomments
     print "* under certain conditions. For details, run the program with   *"
     print "* the flag -w (i.e. python pysort.py -w)                        *"
     print "*"*65
+    
+    if dirname is None:
+        dirname = os.getcwd()
 
-    text, nfiles, filename_bib = recursive_parser(filename_in, flag_stripcomments)
+    text, nfiles, filename_bib = recursive_parser(filename_in, dirname, flag_stripcomments)
 
     if filename_out is None:
         filename_out = filename_bib
@@ -316,10 +338,10 @@ def bibsort(filename_in, filename_out=None, flag_sort='call', flag_stripcomments
 
     if new_bib is not None:
         tt = write_new_file(filename_out, new_bib)
-        print S*3+"done!"
+        print S+"done!"
     else:
         tt = None
-        print S*3+"...execution failed"
+        print S+"...execution failed"
 
     return tt
 
@@ -338,6 +360,7 @@ if __name__ == "__main__":
 
     parser = ArgParser()
     parser.add_argument('-i','--inputfile', help="input file (containing the bibliography)", required=False)
+    parser.add_argument('-d','--directory', help="directory of input file(s)", required=False)
     parser.add_argument('-o','--outputfile', help="output file", required=False)
     parser.add_argument('-s','--sort', help="type of sorting: 'c': by call [default], 'a': alphabetic", required=False)
     parser.add_argument('-c','--comments', help="parsing of comments: 'y': parse comments, 'n': don't parse comments [default]", required=False)
@@ -350,6 +373,11 @@ if __name__ == "__main__":
         filename_in = None
     else:
         filename_in = args['inputfile']
+        
+    if args['directory'] is None:
+        dirname = os.getcwd()
+    else:
+        dirname = args['directory']
 
     if args['outputfile'] is None:
         filename_out = None
@@ -383,8 +411,9 @@ if __name__ == "__main__":
             print "*** licence file (LICENSE) is missing. ***"
 
     if filename_in is not None:
-        if os.path.isfile(filename_in):
-            bibsort(filename_in, filename_out, flag_sort, flag_stripcomments, flag_backup)
+        fname = os.path.join(dirname, filename_in)
+        if os.path.isfile(fname):
+            bibsort(filename_in, filename_out, dirname, flag_sort, flag_stripcomments, flag_backup)
         else:
-            print S*3+"file '{}' not found".format(filename_in)
-            print S*3+"execution failed :("
+            print S+"file '{}' not found".format(fname)
+            print S+"execution failed :("
