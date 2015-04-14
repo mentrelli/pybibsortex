@@ -131,7 +131,7 @@ def break_multiple_cites(ll):
     newll = []
     for l in ll:
         for x in l.split(','):
-            newll.append(x.strip('\s')) #(' \t\n\r'))
+            newll.append(x.strip(' \t\n\r'))
     return newll
 
 
@@ -250,7 +250,7 @@ def parse_bibitems(text):
 def create_abc(bibitem):
     
     # strip out \bibitem{*} and all the possible whitespaces until the next word
-    abc = re.sub(ur'\s*\\bibitem{((?!#).+?)}\s*', '', bibitem)
+    abc = re.sub(ur'\s*\\bibitem\s*{((?!#).+?)}\s*', '', bibitem)
     
     # convert umlaut
     abc = re.sub(ur'ä', ur'a', abc)
@@ -283,6 +283,9 @@ def create_abc(bibitem):
     abc = re.sub(ur'\\normalsize', ur'', abc)
     
     abc = re.sub(ur'\\[a-z]+{', ur'{', abc)
+    
+    # transform 'and' in ','    
+    abc = re.sub(ur'\sand\s', ur', ', abc)
        
     
     # remove all braces
@@ -293,12 +296,16 @@ def create_abc(bibitem):
     # letters followed by a dot, followed optionally by a whitespace and
     # optionally preceded by a "-".
     abc = re.sub(ur'-?([A-Z][a-z]?)\.\s*', ur'', abc)
+    abc = re.sub(ur'\s-?[A-Z],', ur'', abc)
+    
     
     # remove multiple "," which may result
-    #abc = re.sub(ur',\s*,', ur',', abc)
+    abc = re.sub(ur',\s*,', ur',', abc)
     
     # strip out all whitespaces
     abc = re.sub(ur'\s', ur'', abc)
+    
+    abc = abc.lower()
     
     """
     #abc = re.sub('\s\\\\\s', ' ', abc)
@@ -384,6 +391,8 @@ def make_new_bib(cites, bibitems, flag_sort, flag_verbose=True):
             thebibliography = thebibliography + bibitems[key][1] #+ '\n\n'
             i += 1
             bibitems[key][2] = i
+            
+            print "{}: {}".format(i, bibitems[key][3])
 
     return thebibliography
 
