@@ -1,15 +1,22 @@
 # pybibsortex
-Utility to sort by order of appearance the bibliography of a LaTeX document making use of 'thebibliography' environment.
+Utility to sort the bibliography of a LaTeX document making use of 'thebibliography' environment.
 
-Assuming that the main tex file is named 'inputfile.tex', and it is located in the current directory, the program can be run by issuing the command::
+Assuming that the main tex file is named 'inputfile.tex', and it is located in the current directory, the program can be run by issuing the command:
 
-    $ python pysortex.py -i inputfile.tex
+    $ python pysortex.py -i inputfile.tex -s call
     
-If the 'inputfile.tex' is located in the directory '/path/to/files', the program can be run by issuing the command::
+to sort by order of appearance, or by:
+
+    $ python pysortex.py -i inputfile.tex -s alphabetic
+
+to sort by alphabetic order.
+
+    
+If the 'inputfile.tex' is located in the directory '/path/to/files', the program can be run by issuing the command:
 
     $ python pysortex.py -i inputfile.tex -d '/path/to/files'
     
-Other options are illustrated by issuing::
+Other options are illustrated by issuing:
 
     $ python pysortex.py --help
 
