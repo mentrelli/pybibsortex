@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #    PySorTeX
 #        A small utility that sort the bibliography of a LaTeX document
 #        (possibily split into multiple files) which makes use of
@@ -21,11 +23,12 @@
 #!/usr/bin/env python
 
 # history version 
-#version = 'v. 0.3' # (April 1, 2015)
-#version = 'v. 0.3.1' # (April 5, 2015)
+#version = 'v.0.3' # (April 1, 2015)
+#version = 'v.0.3.1' # (April 5, 2015)
+#version = 'v.0.4' # (April 6, 2015)
 
-# prestn version
-version = 'v. 0.4' # (April 6, 2015)
+# present version
+version = 'v.0.5' # (April 14, 2015)
 
 import sys
 import os
@@ -37,6 +40,21 @@ SS = S*2
 
 
 def recursive_parser(filename, dirname=None, flag_stripcomments=True, _firstcall=True, _filecount=1, _filename_bib=''):
+    """
+    returns a string containing all the text of 'filename' file, including
+    the files possibily included.
+    
+    Arguments:
+       filename
+           name of the root file to parse (all the included files are
+           automatically sources into the file)
+       dirname [optional, default is working directory]
+           directory where the root file is located
+       flag_stripcomments [optional, default is True]
+           wether to strip off all comments or leave the comments in the 
+           parsed string
+    """
+      
     
     if dirname is None:
         dirname = os.getcwd()
@@ -113,7 +131,7 @@ def break_multiple_cites(ll):
     newll = []
     for l in ll:
         for x in l.split(','):
-            newll.append(x.strip(' \t\n\r'))
+            newll.append(x.strip('\s')) #(' \t\n\r'))
     return newll
 
 
@@ -144,50 +162,76 @@ def parse_cites(text):
 
 
 def parse_bibitems(text):
+    """
+    Return a dictionary containing the entries of type '\bibitem{}' inside 
+    'thebibliography' environment (note that the entries outside the 
+    environment) are discareded.
+
+    Arguments:
+       text
+           string to parse (as returned by 'recursive_parser()')
+
+    Note: The returned dictionary is made as follows:
+      key: the label of the item (i.e. the text inside braces in
+           '\bibitem{label}', after stripping all white spaces)
+      value: a list [i, item, ], where:
+             i: sequential number of the entry
+             item: full text entry, i.e. all text of the entry, including 
+                   '\bibitem{...}' until the beginning of the next entry (or,
+                   for the last entry, until '\end{thebibliography})
+             j: sequential number of the entry after sorting
+             abc: string for the alphabetical sort (only defined when 
+                  alphabetical sort is required)
+           
+    """
 
     print S+"parsed",
     bibitems = dict()
 
     i, i_before, i_after = 0, 0, 0
     
+    # find the beginning of 'thebibiography' environment
     try:
         pos_thebibliography_start = [m.start() for m in re.finditer(ur'\\begin\s*{\s*thebibliography\s*}', text)][0]
     except:
         pos_thebibliography_start = -1
         
+    # find the end of 'thebibiography' environment
     try:
         pos_thebibliography_end = [m.start() for m in re.finditer(ur'\\end\s*{\s*thebibliography\s*}', text)][0]
     except:
         pos_thebibliography_end = -1
         
+    # check if 'thebibiography' environment has a start and an end
     if pos_thebibliography_start < 0 or pos_thebibliography_end < 0:
         print "ERROR: 'thebibliography' environment not properly defined"
-
+        
+    # loop over all the '\bibitem{*}' in the text
     for ix in [m.start() for m in re.finditer(ur'\\bibitem{', text)]:
 
         if ix < pos_thebibliography_start:
             
-            i_before += 1
+            i_before += 1 # \bibitem{*} outside (before) 'thebibliography' environment
             
         elif ix > pos_thebibliography_end:
             
-            i_after += 1
+            i_after += 1 # \bibitem{*} outside (after) 'thebibliography' environment
             
         else:
             
-            i += 1
+            i += 1 # \bibitem{*} inside 'thebibliography' environment
 
             idx = [m.start() for m in re.finditer(ur'{|}', text[ix:-1])]
             i0 = ix + idx[0] # position of first '{' after \bibitem
             i1 = ix + idx[1] # position of first '}' after \bibitem
-            key = text[i0+1:i1]
-            key = key.strip(' \n\t\r')
+            key = text[i0+1:i1] # bibitem key
+            key = key.strip(' \n\t\r') # strip all sort of white spaces from key 
 
             idx = [m.start() for m in re.finditer(ur'\\bibitem{|\\end{', text[ix:-1])]
             i1 = ix + idx[1] # position of end of \bibitem{}
             item = text[ix:i1]
 
-            bibitems[key] = [i, item, 0]
+            bibitems[key] = [i, item, 0, None]
 
     print "{} occurencies of \\bibitem{} to process".format(i, '{}')
     
@@ -202,16 +246,100 @@ def parse_bibitems(text):
     return bibitems
 
 
+### crea le stringhe da ordinare per autore
+def create_abc(bibitem):
+    
+    # strip out \bibitem{*} and all the possible whitespaces until the next word
+    abc = re.sub(ur'\s*\\bibitem{((?!#).+?)}\s*', '', bibitem)
+    
+    # convert umlaut
+    abc = re.sub(ur'ä', ur'a', abc)
+    abc = re.sub(ur'ë', ur'e', abc)
+    abc = re.sub(ur'ï', ur'i', abc)
+    abc = re.sub(ur'ö', ur'o', abc)
+    abc = re.sub(ur'ü', ur'u', abc)
+    abc = re.sub(ur'\\"\s*([aeiou])', ur'\1', abc)
+    abc = re.sub(ur'\\"\s*{\s*([aeiou])\s*}', ur'\1', abc)
+    
+    # convert other funny characters 
+    abc = re.sub(ur'ß', ur'ss', abc) 
+    abc = re.sub(ur'\\&', ur',', abc)
+    
+    # remove funny accents
+    abc = re.sub(ur"\\'|'", ur'', abc)
+    abc = re.sub(ur"\\~|~", ur'', abc)
+    abc = re.sub(ur"\\´|´", ur'', abc)
+    abc = re.sub(ur"\\`|`", ur'', abc)
+    abc = re.sub(ur"°", ur'', abc)
+    
+    # remove starnge things
+    abc = re.sub(ur"\s\\\s", ur'', abc) # remove \ with spaces on both sides
+    
+    
+    # remove formatting tags
+    abc = re.sub(ur'\\emph', ur'', abc)
+    abc = re.sub(ur'\\textit', ur'', abc)
+    abc = re.sub(ur'\\bold', ur'', abc)
+    abc = re.sub(ur'\\normalsize', ur'', abc)
+    
+    abc = re.sub(ur'\\[a-z]+{', ur'{', abc)
+       
+    
+    # remove all braces
+    abc = re.sub(ur'{|}', ur'', abc)
+    
+    
+    # strip out the first name matching the following pattern: one or two
+    # letters followed by a dot, followed optionally by a whitespace and
+    # optionally preceded by a "-".
+    abc = re.sub(ur'-?([A-Z][a-z]?)\.\s*', ur'', abc)
+    
+    # remove multiple "," which may result
+    #abc = re.sub(ur',\s*,', ur',', abc)
+    
+    # strip out all whitespaces
+    abc = re.sub(ur'\s', ur'', abc)
+    
+    """
+    #abc = re.sub('\s\\\\\s', ' ', abc)
+    abc = re.sub('(T\.R)', 'T. R ', abc)
+    line = re.sub('({\\\\"\s*u})|(\\\\"{u})|(\\\\"u)', 'u', line)
+    #line = re.sub('({\\\\''\s*c})|(\\\\''{c})|(\\\\''c)', 'c', line)
+    line = re.sub('(.\.\-.\.)|(.\-.\.)|(I\,)', '', line)
+    #print line
+    try:
+        arg = re.search('(bibitem(\[.*\])?{[^{]*}\s*)(sc)?(it)?({\s*)?'+\
+        '([A-Z][a-z]\.\s)*([A-Z]\.\s)*([A-Z]\.[A-Z]\.\s)*{*\s*', line).group(0)
+        #arg = re.sub('\\Bi', 'Bi', arg)
+        author, flag_err = line[len(arg)+1:], 0
+    except:
+        author, flag_err = "", 1
+    return author, flag_err
+    """
+    return abc
+    
+    
 
-def make_new_bib(cites, bibitems, flag_sort):
+def make_new_bib(cites, bibitems, flag_sort, flag_verbose=True):
+    
+    if flag_sort in ['c', 'call']:
+        flag_sort_by_call = True
+        str_sort = 'by call'
+    else:
+        flag_sort_by_call = False
+        str_sort = 'alphabetic'
+    flag_sort_alphabetic = not flag_sort_by_call
+    
 
-    print SS+"processing ordered bibliography"
+    print SS+"processing sorted bibliography ({} order)".format(str_sort)
 
     thebibliography = ''
-    i, i_nokey, i_nocite = 0, 0, 0
-    bb_keys = bibitems.keys()
+    i = 0
 
-    if flag_sort in ['c', 'call']:
+    if flag_sort_by_call:
+        
+        bb_keys = bibitems.keys()
+        i_nokey, i_nocite = 0, 0
 
         for key in cites:
 
@@ -220,7 +348,8 @@ def make_new_bib(cites, bibitems, flag_sort):
                 i += 1
                 bibitems[key][2] = i
             else:
-                print SS+"WARNING: citation '{}' does not appear in the bibliography".format(key)
+                if flag_verbose:
+                    print SS+"WARNING: citation '{}' does not appear in the bibliography".format(key)
                 i_nokey += 1
 
 
@@ -229,7 +358,8 @@ def make_new_bib(cites, bibitems, flag_sort):
             sorted_bibitems = sorted(bibitems.items(), key=operator.itemgetter(1))
             for item in sorted_bibitems:
                 if item[1][2] < 1:
-                    print SS+"WARNING: bibitem '{}' (position #{}) is not cited in the text (moved at the bottom)".format(item[0], item[1][0])
+                    if flag_verbose:
+                        print SS+"WARNING: bibitem '{}' (position #{}) is not cited in the text (moved at the bottom)".format(item[0], item[1][0])
                     key = item[0]
                     thebibliography = thebibliography + bibitems[key][1] #+ '\n\n'
                     i_nocite += 1
@@ -243,10 +373,17 @@ def make_new_bib(cites, bibitems, flag_sort):
 
         print S+"{} bibliography entries have been processed".format(i)
 
-    elif flag_sort in ['a', 'alphabetic']:
-
-        print S+"ERROR: alphabetic sorting still to implement."
-        thebibliography = None
+    elif flag_sort_alphabetic:
+        
+        for key in bibitems:
+            bibitems[key][3] = create_abc(bibitems[key][1])
+            
+        sorted_bibitems = sorted(bibitems.items(), key=lambda abc: abc[1][3])
+        
+        for key, value in sorted_bibitems:
+            thebibliography = thebibliography + bibitems[key][1] #+ '\n\n'
+            i += 1
+            bibitems[key][2] = i
 
     return thebibliography
 
@@ -282,9 +419,9 @@ def make_backup_file(filename_in):
 
 
 
-def write_new_file(filename_bib, new_bib):
+def write_new_file(filename_bib_in, filename_bib_out, new_bib):
 
-    f = open(filename_bib, 'r')
+    f = open(filename_bib_in, 'r')
     text = f.read()
 
     s_beg, s_end = r'\begin{thebibliography}', r'\end{thebibliography}'
@@ -296,11 +433,11 @@ def write_new_file(filename_bib, new_bib):
 
     text_new = text[:i0] + '\n' + new_bib + '\n'+ text[i1:]
 
-    f = open(filename_bib, 'w')
+    f = open(filename_bib_out, 'w')
     f.write(text_new)
     f.close()
 
-    print S+"output file: '{}'".format(filename_bib)
+    print S+"output file: '{}'".format(filename_bib_out)
 
     return text_new
 
@@ -308,7 +445,8 @@ def write_new_file(filename_bib, new_bib):
 
 
 def bibsort(filename_in, filename_out=None, dirname=None, \
-            flag_sort='call', flag_stripcomments=True, flag_backup=True):
+            flag_sort='call', flag_stripcomments=True, flag_backup=True, 
+            flag_verbose=True):
 
     print "*"*65
     print "* PySorTeX {} -  Copyright (C) 2015, Andrea Mentrelli       *".format(version)
@@ -334,16 +472,16 @@ def bibsort(filename_in, filename_out=None, dirname=None, \
 
     bibitems = parse_bibitems(text)
 
-    new_bib = make_new_bib(cites, bibitems, flag_sort)
+    new_bib = make_new_bib(cites, bibitems, flag_sort, flag_verbose)
 
     if new_bib is not None:
-        tt = write_new_file(filename_out, new_bib)
+        tt = write_new_file(filename_bib, filename_out, new_bib)
         print S+"done!"
     else:
         tt = None
-        print S+"...execution failed"
+        print S+"...execution failed :/"
 
-    return tt
+    return tt, bibitems
 
 
 
@@ -365,7 +503,8 @@ if __name__ == "__main__":
     parser.add_argument('-s','--sort', help="type of sorting: 'c': by call [default], 'a': alphabetic", required=False)
     parser.add_argument('-c','--comments', help="parsing of comments: 'y': parse comments, 'n': don't parse comments [default]", required=False)
     parser.add_argument('-b','--backup', help="backup of inputfile: 'y': make a backup [default], 'y': don't make a backup", required=False)
-    parser.add_argument('-w', action='store_true', help="show licence information", required=False)
+    parser.add_argument('-w','--warnings', help="display warnings: 'y': display [default], 'n': don't display", required=False)
+    parser.add_argument('-L', action='store_true', help="show licence information", required=False)
 
     args = vars(parser.parse_args())
 
@@ -384,9 +523,7 @@ if __name__ == "__main__":
     else:
         filename_out = args['outputfile']
 
-    if args['sort'] in ['c', 'call']:
-        flag_sort = 'call'
-    elif args['sort'] in ['a', 'alphabetic']:
+    if args['sort'] in ['a', 'alphabetic']:
         flag_sort = 'alphabetic'
     else:
         flag_sort = 'call'
@@ -401,7 +538,7 @@ if __name__ == "__main__":
     else:
         flag_backup = True
 
-    if args['w']:
+    if args['L']:
         filename_in = None
         try:
             f = open('LICENSE', 'r')
@@ -409,11 +546,17 @@ if __name__ == "__main__":
             print GPLv3
         except:
             print "*** licence file (LICENSE) is missing. ***"
+            
+    if args['warnings'] in ['n', 'no'] :
+        flag_verbose = False
+    else:
+        flag_verbose = True
 
     if filename_in is not None:
         fname = os.path.join(dirname, filename_in)
         if os.path.isfile(fname):
-            bibsort(filename_in, filename_out, dirname, flag_sort, flag_stripcomments, flag_backup)
+            bibsort(filename_in, filename_out, dirname, flag_sort, \
+                flag_stripcomments, flag_backup, flag_verbose)
         else:
             print S+"file '{}' not found".format(fname)
             print S+"execution failed :("
