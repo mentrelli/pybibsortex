@@ -249,6 +249,8 @@ def parse_bibitems(text):
 ### crea le stringhe da ordinare per autore
 def create_abc(bibitem):
     
+    bibitem = bibitem.decode('utf-8', 'ignore')
+    
     # strip out \bibitem{*} and all the possible whitespaces until the next word
     abc = re.sub(ur'\s*\\bibitem\s*{((?!#).+?)}\s*', '', bibitem)
     
@@ -264,6 +266,7 @@ def create_abc(bibitem):
     # convert other funny characters 
     abc = re.sub(ur'ß', ur'ss', abc) 
     abc = re.sub(ur'\\&', ur',', abc)
+    abc = re.sub(ur'–', ur'-', abc)
     
     # remove funny accents
     abc = re.sub(ur"\\'|'", ur'', abc)
@@ -272,7 +275,7 @@ def create_abc(bibitem):
     abc = re.sub(ur"\\`|`", ur'', abc)
     abc = re.sub(ur"°", ur'', abc)
     
-    # remove starnge things
+    # remove strange things
     abc = re.sub(ur"\s\\\s", ur'', abc) # remove \ with spaces on both sides
     
     
@@ -299,8 +302,9 @@ def create_abc(bibitem):
     abc = re.sub(ur'\s-?[A-Z],', ur'', abc)
     
     
-    # remove multiple "," which may result
+    # remove multiple "," and "-" which may result
     abc = re.sub(ur',\s*,', ur',', abc)
+    abc = re.sub(ur'-\s*-', ur'-', abc)
     
     # strip out all whitespaces
     abc = re.sub(ur'\s', ur'', abc)
