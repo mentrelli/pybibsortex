@@ -22,13 +22,17 @@
 
 #!/usr/bin/env python
 
-# history version 
-#version = 'v.0.3' # (April 1, 2015)
-#version = 'v.0.3.1' # (April 5, 2015)
-#version = 'v.0.4' # (April 6, 2015)
+# Changelog:
+#   v.0.3 (April 1, 2015)
+#   v.0.3.1 (April 5, 2015)
+#   v.0.4 (April 6, 2015)
+#   v.0.5 (April 14, 2015)
+#   v 0.6 (March 12, 2018): fixed problem with legatures (fi, fl, etc.),
+#         em-dashes and similar; fixed problem with capital letters with
+#         umlaut.
 
 # present version
-version = 'v.0.5' # (April 14, 2015)
+version = 'v.0.6'
 
 import sys
 import os
@@ -249,10 +253,27 @@ def parse_bibitems(text):
 ### crea le stringhe da ordinare per autore
 def create_abc(bibitem):
     
-    bibitem = bibitem.decode('utf-8', 'ignore')
+    #bibitem = bibitem.decode('utf-8', 'ignore')
     
     # strip out \bibitem{*} and all the possible whitespaces until the next word
     abc = re.sub(ur'\s*\\bibitem\s*{((?!#).+?)}\s*', '', bibitem)
+    
+    # replace some unicode characters
+    #   http://utf8-chartable.de/unicode-utf8-table.pl?start=64256&utf8=string-literal
+    abc = re.sub(ur'\xef\xac\x80', ur'ff', abc) # latin small ligature ff
+    abc = re.sub(ur'\xef\xac\x81', ur'fi', abc) # latin small ligature fi
+    abc = re.sub(ur'\xef\xac\x82', ur'fl', abc) # latin small ligature fl
+    abc = re.sub(ur'\xef\xac\x83', ur'ffi', abc) # latin small ligature ffi
+    abc = re.sub(ur'\xef\xac\x84', ur'ffl', abc) # latin small ligature ffl
+    abc = re.sub(ur'\xef\xac\x85', ur'st', abc) # latin small ligature long st
+    abc = re.sub(ur'\xef\xac\x86', ur'st', abc) # latin small ligature st
+    #   http://www.utf8-chartable.de/unicode-utf8-table.pl?start=8192&number=128&utf8=string-literal
+    abc = re.sub(ur'\xe2\x80\x90', ur'-', abc) # hyphen
+    abc = re.sub(ur'\xe2\x80\x91', ur'-', abc) # non-breaking hyphen
+    abc = re.sub(ur'\xe2\x80\x92', ur'-', abc) # figure dash
+    abc = re.sub(ur'\xe2\x80\x93', ur'-', abc) # en dash
+    abc = re.sub(ur'\xe2\x80\x94', ur'-', abc) # em dash
+    abc = re.sub(ur'\xe2\x80\x95', ur'-', abc) # horizontal bar
     
     # convert umlaut
     abc = re.sub(ur'ä', ur'a', abc)
@@ -260,8 +281,8 @@ def create_abc(bibitem):
     abc = re.sub(ur'ï', ur'i', abc)
     abc = re.sub(ur'ö', ur'o', abc)
     abc = re.sub(ur'ü', ur'u', abc)
-    abc = re.sub(ur'\\"\s*([aeiou])', ur'\1', abc)
-    abc = re.sub(ur'\\"\s*{\s*([aeiou])\s*}', ur'\1', abc)
+    abc = re.sub(ur'\\"\s*([aeiouAEIOU])', ur'\1', abc)
+    abc = re.sub(ur'\\"\s*{\s*([aeiouAEIOU])\s*}', ur'\1', abc)
     
     # convert other funny characters 
     abc = re.sub(ur'ß', ur'ss', abc) 
@@ -289,7 +310,10 @@ def create_abc(bibitem):
     
     # transform 'and' in ','    
     abc = re.sub(ur'\sand\s', ur', ', abc)
-       
+    
+    # remove indication of Editor(s)
+    abc = re.sub(ur'\s\(Ed.\)', ur',', abc)
+    abc = re.sub(ur'\s\(Eds.\)', ur',', abc)       
     
     # remove all braces
     abc = re.sub(ur'{|}', ur'', abc)
