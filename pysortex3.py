@@ -30,6 +30,7 @@
 #   v 0.6 (March 12, 2018): fixed problem with legatures (fi, fl, etc.),
 #         em-dashes and similar; fixed problem with capital letters with
 #         umlaut.
+#   v 0.6-py3 (May 23, 2022): Python 3 version
 
 # present version
 version = 'v.0.6-py3'
